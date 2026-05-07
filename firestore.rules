@@ -8,8 +8,23 @@ service cloud.firestore {
 
     function isSignedIn() {
       return request.auth != null && 
-             request.auth.token.email_verified == true &&
-             request.auth.token.email.matches('^.*@placen\\.co\\.kr$');
+             request.auth.token.email_verified == true;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'kyungmin.lee@placen.co.kr';
+    }
+
+    function isActive() {
+      return isSignedIn() && (isAdmin() || getUserData().status == 'active');
+    }
+
+    function isOwner(data) {
+      return isSignedIn() && data.ownerId == request.auth.uid;
     }
 
     function isValidId(id) {
@@ -25,7 +40,9 @@ service cloud.firestore {
     }
 
     function isValidMerchantData(data) {
-      return (!('groupName' in data) || (data.groupName is string && data.groupName.size() <= 1000)) &&
+      return (!('ownerId' in data) || (data.ownerId is string)) &&
+             (!('ownerName' in data) || (data.ownerName is string)) &&
+             (!('groupName' in data) || (data.groupName is string && data.groupName.size() <= 1000)) &&
              (!('merchantType' in data) || (data.merchantType is string && data.merchantType in ['CONNECT', 'BOOKING'])) &&
              (!('name' in data) || (data.name is string && data.name.size() <= 1000)) &&
              (!('businessNumber' in data) || (data.businessNumber is string && data.businessNumber.size() <= 500)) &&
@@ -70,26 +87,52 @@ service cloud.firestore {
     }
 
     match /merchants/{merchantId} {
-      allow read: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() &&
+      allow read, list: if isActive();
+      allow create: if isActive() &&
                        isValidId(merchantId) &&
                        isValidMerchantData(incoming()) &&
                        hasMinimumMerchantFields(incoming()) &&
+                       incoming().ownerId == request.auth.uid &&
                        incoming().createdAt == request.time &&
                        incoming().updatedAt == request.time;
-      allow update: if isSignedIn() &&
+      allow update: if isActive() &&
                        isValidId(merchantId) &&
                        isValidMerchantData(incoming()) &&
                        incoming().createdAt == existing().createdAt &&
                        incoming().updatedAt == request.time;
-      allow delete: if isSignedIn() && isValidId(merchantId);
+      allow delete: if isAdmin();
+    }
+
+    match /userPlans/{planId} {
+      // planId format: {userId}_{merchantId}
+      allow read: if isSignedIn() && (planId.startsWith(request.auth.uid) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isActive() && 
+                    incoming().userId == request.auth.uid && 
+                    planId == request.auth.uid + "_" + incoming().merchantId &&
+                    (!('order' in incoming()) || incoming().order is number);
+      allow update: if isActive() && 
+                    incoming().userId == request.auth.uid && 
+                    incoming().merchantId == existing().merchantId &&
+                    (!('order' in incoming()) || (incoming().order is number));
+      allow delete: if isSignedIn() && (planId.startsWith(request.auth.uid) || isAdmin());
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId && (
+                       // Can update their own name and assignees
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'assignees', 'updatedAt']) ||
+                       // Admins can update status and role
+                       (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'role']))
+                     );
     }
 
     match /merchants_audit/{logId} {
-      allow read: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(logId);
+      allow read: if isActive();
+      allow list: if isActive();
+      allow create: if isActive() && isValidId(logId);
       allow update, delete: if false;
     }
 
@@ -99,10 +142,10 @@ service cloud.firestore {
     }
 
     match /settings/{settingId} {
-      allow read: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(settingId) && isValidSettings(incoming());
-      allow update: if isSignedIn() && isValidId(settingId) && isValidSettings(incoming());
+      allow read: if isActive();
+      allow list: if isActive();
+      allow create: if isActive() && isValidId(settingId) && isValidSettings(incoming());
+      allow update: if isActive() && isValidId(settingId) && isValidSettings(incoming());
     }
   }
 }

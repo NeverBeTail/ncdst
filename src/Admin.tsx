@@ -1,14 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { Merchant, InstallStatus, MerchantType, AuditLog } from './types';
-import { ArrowLeft, Plus, Trash2, Edit2, Check, X, Upload, Save, Link as LinkIcon, RefreshCw, Download, FileText, History, User } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Merchant, InstallStatus, MerchantType, AuditLog, AppUser } from './types';
+import { ArrowLeft, Plus, Trash2, Edit2, Check, X, Upload, Save, Link as LinkIcon, RefreshCw, Download, FileText, History, User, Users, Calendar, Clock, ArrowUp } from 'lucide-react';
 import Papa from 'papaparse';
 import { normalizeAddress } from './services/jusoService';
-import { useAuditLogs } from './useMerchants';
+import { useAuditLogs, useUsers, useAllPlans } from './useMerchants';
 import { isFirestoreQuotaError } from './firebase/errorHandler';
 
 const N_GREEN = '#03C75A';
 
 interface AdminProps {
+  userProfile: AppUser | null;
   merchants: Merchant[];
   assignees: string[];
   addMerchant: (m: Omit<Merchant, 'id'>) => Promise<void>;
@@ -17,13 +18,26 @@ interface AdminProps {
   deleteMerchant: (id: string) => Promise<void>;
   deleteMerchants: (ids: string[]) => Promise<void>;
   updateAssignees: (a: string[]) => Promise<void>;
+  updateProfile: (updates: Partial<AppUser>) => Promise<void>;
+  approveUser?: (userId: string) => Promise<void>;
   onClose: () => void;
 }
 
-export default function Admin({ merchants, assignees, addMerchant, addMerchants, updateMerchant, deleteMerchant, deleteMerchants, updateAssignees, onClose }: AdminProps) {
-  const [activeTab, setActiveTab] = useState<'merchants' | 'settings' | 'audit'>('merchants');
+export default function Admin({ 
+  userProfile, merchants, assignees, addMerchant, addMerchants, 
+  updateMerchant, deleteMerchant, deleteMerchants, 
+  updateAssignees, updateProfile, approveUser, onClose 
+}: AdminProps) {
+  const isAdmin = userProfile?.role === 'admin';
+  const [activeTab, setActiveTab] = useState<'merchants' | 'settings' | 'accounts' | 'audit'>(isAdmin ? 'accounts' : 'merchants');
   const { logs, loading: logsLoading } = useAuditLogs();
+  const { users, loading: usersLoading } = useUsers();
+  const { plans: allPlans, loading: plansLoading } = useAllPlans(isAdmin);
   const [activeType, setActiveType] = useState<'CONNECT' | 'BOOKING'>('CONNECT');
+  
+  // Profile settings
+  const [editUserName, setEditUserName] = useState(userProfile?.name || '');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   
   // Settings states
   const [newAssignee, setNewAssignee] = useState('');
@@ -36,6 +50,32 @@ export default function Admin({ merchants, assignees, addMerchant, addMerchants,
   const [isAddingMerchant, setIsAddingMerchant] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'uploading' | 'complete'>('idle');
+  
+  const handleUpdateName = async () => {
+    if (!editUserName.trim() || isUpdatingProfile) return;
+    setIsUpdatingProfile(true);
+    try {
+      await updateProfile({ name: editUserName.trim() });
+      alert('저장되었습니다.');
+    } catch (e) {
+      alert('이름 수정 실패');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const userStats = useMemo(() => {
+    if (!isAdmin) return [];
+    return users.map(u => {
+      // 가맹점 수는 전체 공유이므로 merchants.length (또는 실제 DB에 등록된 전체 수)
+      const userPlansCount = allPlans.filter(p => p.userId === u.id).length;
+      return {
+        ...u,
+        merchantCount: merchants.length,
+        plannedCount: userPlansCount
+      };
+    });
+  }, [isAdmin, users, merchants, allPlans]);
   const [uploadProgress, setUploadProgress] = useState<{ 
     current: number; 
     total: number; 
@@ -509,21 +549,29 @@ export default function Admin({ merchants, assignees, addMerchant, addMerchants,
 
       {/* Tabs */}
       <div className="bg-white border-b border-gray-200 sticky top-[61px] z-10">
-        <div className="flex px-4 max-w-3xl mx-auto">
+        <div className="flex px-4 max-w-3xl mx-auto overflow-x-auto scrollbar-hide">
+          {isAdmin && (
+            <button 
+              className={`min-w-[100px] py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'accounts' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('accounts')}
+            >
+              계정별 현황
+            </button>
+          )}
           <button 
-            className={`flex-1 py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'merchants' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            className={`min-w-[100px] py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'merchants' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('merchants')}
           >
             가맹점 관리
           </button>
           <button 
-            className={`flex-1 py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'settings' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            className={`min-w-[100px] py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'settings' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('settings')}
           >
-            환경설정
+            프로필/담당자
           </button>
           <button 
-            className={`flex-1 py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'audit' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            className={`min-w-[100px] py-3 text-[13px] font-bold border-b-2 transition-colors ${activeTab === 'audit' ? 'border-[#03C75A] text-[#03C75A]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('audit')}
           >
             변경 이력
@@ -532,7 +580,65 @@ export default function Admin({ merchants, assignees, addMerchant, addMerchants,
       </div>
 
       <main className="max-w-3xl mx-auto p-4 pb-20 space-y-4">
-        {activeTab === 'audit' ? (
+        {activeTab === 'accounts' && isAdmin ? (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-5 border-b border-gray-50 bg-gray-50/30">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-[#03C75A]" />
+                  계정별 영업 현황 (관리자 전용)
+                </h2>
+              </div>
+              
+              {usersLoading ? (
+                <div className="p-12 text-center text-gray-400">계정 목록을 불러오는 중...</div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {userStats.map(u => (
+                    <div key={u.id} className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center text-[#03C75A]">
+                          <User className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-gray-900">{u.name}</h3>
+                            {u.status === 'pending' && (
+                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded flex items-center gap-0.5">
+                                <Clock className="h-2.5 w-2.5" /> 승인대기
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">{u.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="flex gap-4">
+                          <div className="text-center">
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">가맹점</div>
+                            <div className="text-lg font-bold text-gray-900">{u.merchantCount}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[10px] font-black text-[#03C75A] uppercase tracking-tighter">방문 계획</div>
+                            <div className="text-lg font-bold text-[#03C75A]">{u.plannedCount}</div>
+                          </div>
+                        </div>
+                        {u.status === 'pending' && approveUser && (
+                          <button 
+                            onClick={() => approveUser(u.id)}
+                            className="px-4 py-2 bg-[#03C75A] text-white text-xs font-bold rounded-lg hover:bg-[#02b351] transition-colors shadow-sm"
+                          >
+                            승인하기
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'audit' ? (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                <div className="p-5 border-b border-gray-50 bg-gray-50/30">
@@ -592,7 +698,35 @@ export default function Admin({ merchants, assignees, addMerchant, addMerchants,
         ) : activeTab === 'settings' ? (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-sm p-5 space-y-5">
-              <h2 className="text-lg font-bold text-gray-900">담당자 추가</h2>
+              <h2 className="text-lg font-bold text-gray-900 border-b border-gray-50 pb-3 flex items-center gap-2">
+                <User className="h-5 w-5 text-[#03C75A]" />
+                사용자 프로필
+              </h2>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter ml-1">내 이름</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    value={editUserName}
+                    onChange={e => setEditUserName(e.target.value)}
+                    className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:bg-white transition-colors"
+                  />
+                  <button 
+                    onClick={handleUpdateName}
+                    className="px-6 py-3 bg-[#03C75A] text-white rounded-xl font-bold hover:bg-[#02b351] transition-transform active:scale-[0.97]"
+                  >
+                    이름 저장
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 ml-1">영업 메모나 감사 로그에 남는 본인의 표시 이름입니다.</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm p-5 space-y-5">
+              <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center gap-2">
+                <Users className="h-5 w-5 text-[#03C75A]" />
+                내 담당자(Assignees) 관리
+              </h2>
               <div className="flex gap-2 mb-6">
                 <input 
                   type="text"
@@ -611,7 +745,7 @@ export default function Admin({ merchants, assignees, addMerchant, addMerchants,
                 </button>
               </div>
 
-              <h2 className="text-lg font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">담당자 목록</h2>
+              <h2 className="text-sm font-bold text-gray-500 mt-6 ml-1">나의 담당자 목록</h2>
               <ul className="space-y-2">
                 {assignees.map(name => (
                   <li key={name} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -1062,6 +1196,14 @@ export default function Admin({ merchants, assignees, addMerchant, addMerchants,
           </div>
         )}
       </main>
+      
+      {/* Scroll to Top */}
+      <button 
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className="fixed bottom-6 right-6 z-50 bg-gray-800 text-white p-3 rounded-full shadow-xl hover:bg-gray-700 transition-colors"
+      >
+        <ArrowUp className="h-5 w-5" />
+      </button>
     </div>
   );
 }

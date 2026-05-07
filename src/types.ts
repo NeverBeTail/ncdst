@@ -3,8 +3,30 @@ export type InstallStatus = '미설치' | '설치예정' | '설치완료' | '';
 export type TTerminalStatus = '설치' | '미설치' | '모름' | '';
 export type MerchantType = 'CONNECT' | 'BOOKING';
 
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'user' | 'admin';
+  status: 'pending' | 'active' | 'rejected';
+  assignees: string[];
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface UserPlan {
+  id: string; // userId_merchantId
+  userId: string;
+  merchantId: string;
+  plannedDate: string;
+  order: number;
+  updatedAt: any;
+}
+
 export interface Merchant {
   id: string;
+  ownerId?: string; // 소유자 UID
+  ownerName?: string; // 소유자 이름 (담당자명으로 활용 가능)
   merchantType: MerchantType; // 커넥트(Connect) 또는 예약(Booking)
   groupName: string; // 업로드 시트(그룹)명
   
@@ -19,7 +41,7 @@ export interface Merchant {
   visitDate: string; // 방문일자 (YYYY-MM-DD)
   visitResult: VisitResult; // 방문결과
   notes: string; // 비고
-  plannedDate?: string; // 방문 예정일 (YYYY-MM-DD)
+  plannedDate?: string; // 방문 예정일 (YYYY-MM-DD) - Merchant 객체에서는 UI 표시용으로 머지됨
   
   // 신규 필드 (네이버 예약 영업 및 통합)
   criteria?: string; // 기준

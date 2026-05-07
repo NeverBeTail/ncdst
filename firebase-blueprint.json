@@ -1,10 +1,26 @@
 {
   "entities": {
+    "user": {
+      "title": "User",
+      "description": "App user profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "assignees": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      },
+      "required": ["email", "name", "role"]
+    },
     "merchant": {
       "title": "Merchant",
       "description": "Represents a merchant for NPay sales (Connect or Booking)",
       "type": "object",
       "properties": {
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
         "merchantType": { "type": "string", "enum": ["CONNECT", "BOOKING"] },
         "groupName": { "type": "string" },
         "name": { "type": "string" },
@@ -45,6 +61,18 @@
       },
       "required": ["merchantType", "groupName", "name", "address", "assignee", "visitResult"]
     },
+    "userPlan": {
+      "title": "User Plan",
+      "description": "User specific visit plan for a merchant",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "merchantId": { "type": "string" },
+        "plannedDate": { "type": "string" },
+        "updatedAt": { "type": "timestamp" }
+      },
+      "required": ["userId", "merchantId", "plannedDate"]
+    },
     "settings": {
       "title": "Settings",
       "description": "Global app settings",
@@ -56,9 +84,17 @@
     }
   },
   "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/user" },
+      "description": "App user profiles and personal settings"
+    },
     "merchants/{merchantId}": {
       "schema": { "$ref": "#/entities/merchant" },
       "description": "Target merchants for NPay Connect"
+    },
+    "userPlans/{planId}": {
+      "schema": { "$ref": "#/entities/userPlan" },
+      "description": "User personal visiting plans (plannedDate)"
     },
     "settings/{settingId}": {
       "schema": { "$ref": "#/entities/settings" },

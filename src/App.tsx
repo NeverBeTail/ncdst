@@ -6,14 +6,26 @@ import { signOut } from 'firebase/auth';
 import Admin from './Admin';
 import Dashboard from './Dashboard';
 import Planner from './Planner';
-import { useMerchants, useSettings, useAuditLogs } from './useMerchants';
+import { useMerchants, useSettings, useAuditLogs, useAuth } from './useMerchants';
 
 // 네이버 브랜드 컬러
 const N_GREEN = '#03C75A';
 
 export default function App() {
-  const { merchants, loading, updateMerchant, addMerchant, addMerchants, deleteMerchant, deleteMerchants } = useMerchants();
-  const { assignees, loading: settingsLoading, updateAssignees } = useSettings();
+  const { userProfile, loading: authLoading, updateProfile, approveUser, isAdmin } = useAuth();
+  const { 
+    merchants, 
+    loading, 
+    updateMerchant, 
+    addMerchant, 
+    addMerchants, 
+    deleteMerchant, 
+    deleteMerchants,
+    updatePlannedDate,
+    batchUpdatePlannedDate,
+    updatePlanOrder 
+  } = useMerchants(userProfile);
+  const { assignees, loading: settingsLoading, updateAssignees } = useSettings(userProfile);
   const { addLog } = useAuditLogs();
 
   const [activeView, setActiveView] = useState<'list' | 'dashboard' | 'planner'>('list');
@@ -192,6 +204,11 @@ export default function App() {
 
   const handleSaveMerchant = async () => {
     if (selectedMerchant && originalMerchant) {
+      // Handle personal plannedDate separately
+      if (selectedMerchant.plannedDate !== originalMerchant.plannedDate) {
+        await updatePlannedDate(selectedMerchant.id, selectedMerchant.plannedDate || '');
+      }
+
       // Check for changes to log
       const fieldsToLog: (keyof Merchant)[] = [
         'assignedPart', 'leadOwner', 'contactStage', 'bookingStatus', 'contactStatusNotes',
@@ -245,7 +262,7 @@ export default function App() {
         tTerminalInstalled: selectedMerchant.tTerminalInstalled || '',
         notes: selectedMerchant.notes || '',
         contact: selectedMerchant.contact || '',
-        plannedDate: selectedMerchant.plannedDate || '',
+        // plannedDate: selectedMerchant.plannedDate || '', // 제거 (개인별 관리)
         placeId: selectedMerchant.placeId || '',
         bookingStatus: selectedMerchant.bookingStatus || '',
         category: selectedMerchant.category || '',
@@ -303,8 +320,57 @@ export default function App() {
     });
   };
 
-  if (loading) {
-     return <div className="min-h-screen flex items-center justify-center bg-[#f5f6f8]">로딩중...</div>;
+  if (authLoading || loading) {
+     return <div className="min-h-screen flex items-center justify-center bg-[#f5f6f8]">
+       <div className="flex flex-col items-center gap-3">
+         <div className="w-8 h-8 border-4 border-[#03C75A]/20 border-t-[#03C75A] rounded-full animate-spin"></div>
+         <span className="text-sm font-bold text-gray-500">데이터 동기화 중...</span>
+       </div>
+     </div>;
+  }
+
+  if (!userProfile) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#f5f6f8] p-4 text-center">
+      <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full space-y-4">
+        <div className="w-16 h-16 bg-[#e5f9ed] text-[#03C75A] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <User className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">로그인 정보 확인 불가</h2>
+        <p className="text-sm text-gray-500">계정 정보를 불러올 수 없습니다. 다시 로그인해주세요.</p>
+        <button 
+          onClick={() => signOut(auth)}
+          className="w-full py-3 bg-[#03C75A] text-white rounded-xl font-bold"
+        >
+          로그아웃 후 다시 시도
+        </button>
+      </div>
+    </div>;
+  }
+
+  if (userProfile.status === 'pending') {
+    return <div className="min-h-screen flex items-center justify-center bg-[#f5f6f8] p-4 text-center">
+      <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full space-y-6">
+        <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto animate-pulse">
+          <Clock className="h-10 w-10" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-gray-900">승인 대기 중</h2>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            관리자가 사용 권한을 승인한 후 이용 가능합니다.<br/>
+            승인 문의: kyungmin.lee@placen.co.kr
+          </p>
+        </div>
+        <div className="pt-4 border-t border-gray-50">
+          <p className="text-xs text-gray-400 mb-4 italic">{userProfile.email}</p>
+          <button 
+            onClick={() => signOut(auth)}
+            className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+          >
+            다른 계정으로 로그인
+          </button>
+        </div>
+      </div>
+    </div>;
   }
 
   return (
@@ -341,6 +407,10 @@ export default function App() {
           </h1>
 
           <div className="flex items-center gap-1">
+            <div className="hidden sm:flex flex-col items-end mr-2">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">담당자</span>
+              <span className="text-xs font-bold text-gray-700">{userProfile?.name}</span>
+            </div>
             <button 
               onClick={handleDownloadCSV}
               className="p-2 text-gray-500 hover:text-gray-900 transition-colors flex items-center justify-center relative group"
@@ -651,14 +721,8 @@ export default function App() {
                                          </span>
                                        )}
                                     </div>
-                                    {(merchant.assignee || merchant.visitDate) && (
+                                    {(merchant.visitDate) && (
                                        <div className="flex flex-wrap items-center gap-4 text-xs mt-1">
-                                          {merchant.assignee && (
-                                            <div className="flex items-center gap-1.5">
-                                              <User className="h-3.5 w-3.5 text-gray-400" />
-                                              <span>담당: {merchant.assignee}</span>
-                                            </div>
-                                          )}
                                           {merchant.visitDate && (
                                             <div className="flex items-center gap-1.5">
                                               <Calendar className="h-3.5 w-3.5 text-gray-400" />
@@ -682,7 +746,18 @@ export default function App() {
         )}
 
         {activeView === 'dashboard' && <Dashboard merchants={merchants} />}
-        {activeView === 'planner' && <Planner merchants={merchants} assignees={assignees} currentUserEmail={auth.currentUser?.email || null} onRefresh={() => {}} />}
+        {activeView === 'planner' && (
+          <Planner 
+            merchants={merchants} 
+            assignees={assignees} 
+            currentUserEmail={userProfile?.email || null} 
+            onRefresh={() => {}} 
+            updatePlannedDate={updatePlannedDate}
+            batchUpdatePlannedDate={batchUpdatePlannedDate}
+            updatePlanOrder={updatePlanOrder}
+            onMerchantClick={handleEditClick}
+          />
+        )}
       </main>
 
       {/* Bottom Navigation */}
@@ -1155,6 +1230,7 @@ export default function App() {
       {/* Admin Mode */}
       {isAdminOpen && (
         <Admin 
+          userProfile={userProfile}
           merchants={merchants}
           assignees={assignees}
           addMerchant={addMerchant}
@@ -1163,6 +1239,8 @@ export default function App() {
           deleteMerchant={deleteMerchant}
           deleteMerchants={deleteMerchants}
           updateAssignees={updateAssignees}
+          updateProfile={updateProfile}
+          approveUser={approveUser}
           onClose={() => setIsAdminOpen(false)}
         />
       )}
