@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "merchant": {
+      "title": "Merchant",
+      "description": "Represents a merchant for NPay sales",
+      "type": "object",
+      "properties": {
+        "groupName": { "type": "string" },
+        "vanCompany": { "type": "string" },
+        "vanAgencyName": { "type": "string" },
+        "agencyContact": { "type": "string" },
+        "name": { "type": "string" },
+        "businessNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "assignee": { "type": "string" },
+        "visitDate": { "type": "string" },
+        "visitResult": { "type": "string", "enum": ["대기중", "대표부재", "재방문필요", "대리점상담희망", "즉시설치", "거절", "불가", "방문실패", ""] },
+        "installStatus": { "type": "string", "enum": ["미설치", "설치예정", "설치완료", ""] },
+        "installDate": { "type": "string" },
+        "tTerminalInstalled": { "type": "string", "enum": ["설치", "미설치", "모름", ""] },
+        "notes": { "type": "string" },
+        "contact": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      },
+      "required": ["groupName", "vanCompany", "vanAgencyName", "agencyContact", "name", "businessNumber", "address", "assignee", "visitDate", "visitResult", "installStatus", "tTerminalInstalled", "notes", "contact", "createdAt", "updatedAt"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Global app settings",
+      "type": "object",
+      "properties": {
+        "assignees": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["assignees"]
+    }
+  },
+  "firestore": {
+    "merchants/{merchantId}": {
+      "schema": { "$ref": "#/entities/merchant" },
+      "description": "Target merchants for NPay Connect"
+    },
+    "settings/{settingId}": {
+      "schema": { "$ref": "#/entities/settings" },
+      "description": "App settings like available assignees"
+    }
+  }
+}

@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && 
+             request.auth.token.email_verified == true &&
+             request.auth.token.email.matches('.*@placen\\.co\\.kr');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidMerchant(data) {
+      let requiredFields = [
+        'groupName', 'vanCompany', 'vanAgencyName', 'agencyContact', 'name', 
+        'businessNumber', 'address', 'assignee', 'visitDate', 'visitResult', 
+        'installStatus', 'tTerminalInstalled', 'notes', 'contact', 'createdAt', 'updatedAt'
+      ];
+      return data.keys().hasAll(requiredFields) &&
+             data.groupName is string && data.groupName.size() <= 500 &&
+             data.vanCompany is string && data.vanCompany.size() <= 500 &&
+             data.vanAgencyName is string && data.vanAgencyName.size() <= 500 &&
+             data.agencyContact is string && data.agencyContact.size() <= 200 &&
+             data.name is string && data.name.size() <= 500 &&
+             data.businessNumber is string && data.businessNumber.size() <= 200 &&
+             data.address is string && data.address.size() <= 1000 &&
+             data.assignee is string && data.assignee.size() <= 200 &&
+             data.visitDate is string && data.visitDate.size() <= 100 &&
+             data.visitResult is string && data.visitResult in ['대기중', '대표부재', '재방문필요', '대리점상담희망', '즉시설치', '거절', '불가', '방문실패', ''] &&
+             data.installStatus is string && data.installStatus in ['미설치', '설치예정', '설치완료', ''] &&
+             data.tTerminalInstalled is string && data.tTerminalInstalled in ['설치', '미설치', '모름', ''] &&
+             data.notes is string && data.notes.size() <= 5000 &&
+             data.contact is string && data.contact.size() <= 200 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    match /merchants/{merchantId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       isValidId(merchantId) &&
+                       isValidMerchant(incoming()) &&
+                       incoming().createdAt == request.time &&
+                       incoming().updatedAt == request.time;
+      allow update: if isSignedIn() &&
+                       isValidId(merchantId) &&
+                       isValidMerchant(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt == request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'groupName', 'vanCompany', 'vanAgencyName', 'agencyContact', 'name', 
+                         'businessNumber', 'address', 'assignee', 'visitDate', 'visitResult', 
+                         'installStatus', 'tTerminalInstalled', 'notes', 'contact', 'updatedAt'
+                       ]);
+      allow delete: if isSignedIn() && isValidId(merchantId);
+    }
+
+    function isValidSettings(data) {
+      return (!('assignees' in data) || (data.assignees is list && (data.assignees.size() == 0 || data.assignees[0] is string))) &&
+             (!('spreadsheetId' in data) || data.spreadsheetId is string);
+    }
+
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(settingId) && isValidSettings(incoming());
+      allow update: if isSignedIn() && isValidId(settingId) && isValidSettings(incoming());
+    }
+  }
+}

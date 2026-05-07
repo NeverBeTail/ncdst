@@ -1,0 +1,6 @@
+{
+  "name": "NPay 영업 관리",
+  "description": "네이버 커넥트(NPay 단말기) 타겟 가맹점 방문 영업 관리 앱",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
