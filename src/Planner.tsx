@@ -28,6 +28,12 @@ export default function Planner({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [expandedDongs, setExpandedDongs] = useState<Record<string, boolean>>({});
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  const forceRefresh = () => {
+    setRefreshCounter(prev => prev + 1);
+    onRefresh();
+  };
 
   // Extract Dong from address (Synchronized with App.tsx)
   const extractDong = (address: string) => {
@@ -92,7 +98,7 @@ export default function Planner({
       await batchUpdatePlannedDate(selectedMerchants, selectedDate);
       setSelectedMerchants([]);
       setIsSelectorOpen(false); // Close selector after confirmation
-      onRefresh();
+      forceRefresh();
     } catch (error: any) {
       console.error('Error assigning plan:', error);
       alert('일정 수립 중 오류가 발생했습니다.');
@@ -104,10 +110,23 @@ export default function Planner({
   const handleRemoveFromPlan = async (id: string) => {
     try {
       await updatePlannedDate(id, '');
-      onRefresh();
+      forceRefresh();
     } catch (error) {
       console.error('Error removing plan:', error);
       alert('일정 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleRemoveAllFromPlan = async () => {
+    setIsUpdating(true);
+    console.log('Removing plans for merchants:', plannedForDate.map(m => m.id));
+    try {
+      await batchUpdatePlannedDate(plannedForDate.map(m => m.id), '');
+      forceRefresh();
+    } catch (error) {
+      console.error('Error removing all plans:', error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -159,8 +178,17 @@ export default function Planner({
 
         {plannedForDate.length > 0 ? (
           <div className="space-y-2">
-            <div className="w-full text-[11px] text-gray-400 mb-1 uppercase font-bold tracking-wider">
-              {new Date(selectedDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} 확정 일정 ({plannedForDate.length}건)
+            <div className="w-full flex items-center justify-between mb-1">
+              <div className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">
+                {new Date(selectedDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} 확정 일정 ({plannedForDate.length}건)
+              </div>
+              <button 
+                onClick={handleRemoveAllFromPlan}
+                disabled={isUpdating}
+                className="text-[10px] font-bold text-red-500 hover:text-red-700 uppercase disabled:opacity-50"
+              >
+                전체 삭제
+              </button>
             </div>
             <div className="space-y-2">
               {plannedForDate.map((m, idx) => (

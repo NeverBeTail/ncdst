@@ -11,17 +11,7 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        if (currentUser.email && !currentUser.email.endsWith('@placen.co.kr')) {
-          await firebaseSignOut(auth);
-          alert('@placen.co.kr 이메일만 로그인이 가능합니다.');
-          setUser(null);
-        } else {
-          setUser(currentUser);
-        }
-      } else {
-        setUser(null);
-      }
+      setUser(currentUser);
       setLoading(false);
     });
     return unsubscribe;
@@ -31,11 +21,7 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
     if (isSigningIn) return;
     setIsSigningIn(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      if (result.user.email && !result.user.email.endsWith('@placen.co.kr')) {
-         await firebaseSignOut(auth);
-         alert('@placen.co.kr 이메일만 로그인이 가능합니다.');
-      }
+      await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error('Sign in error', error);
       // Ignore common "cancelled" or "closed" errors

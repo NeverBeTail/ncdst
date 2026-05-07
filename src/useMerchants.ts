@@ -192,7 +192,11 @@ export function useMerchants(userProfile: AppUser | null) {
   };
 
   const batchUpdatePlannedDate = async (merchantIds: string[], plannedDate: string) => {
-    if (!userProfile || !merchantIds.length) return;
+    console.log('batchUpdatePlannedDate called', { merchantIds, plannedDate });
+    if (!userProfile || !merchantIds.length) {
+      console.log('batchUpdatePlannedDate aborted', { userProfile: !!userProfile, length: merchantIds.length });
+      return;
+    }
     try {
       const CHUNK_SIZE = 500;
       for (let i = 0; i < merchantIds.length; i += CHUNK_SIZE) {
@@ -217,8 +221,10 @@ export function useMerchants(userProfile: AppUser | null) {
           }
         });
         await batch.commit();
+        console.log('Batch committed');
       }
     } catch (error) {
+      console.error('Batch error', error);
       handleFirestoreError(error, OperationType.WRITE, 'userPlans/batch');
     }
   };

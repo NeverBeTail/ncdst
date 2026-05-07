@@ -787,7 +787,7 @@ export default function Admin({
               <div className="flex gap-2">
                 <button 
                   onClick={handleAddMerchantClick}
-                  className="flex-1 py-4 rounded-2xl bg-white shadow-sm border-2 border-dashed border-gray-200 text-gray-500 font-medium flex items-center justify-center gap-2 hover:border-[#03C75A] hover:text-[#03C75A] transition-colors"
+                  className="relative z-10 flex-1 py-4 rounded-2xl bg-white shadow-sm border-2 border-dashed border-gray-200 text-gray-500 font-medium flex items-center justify-center gap-2 hover:border-[#03C75A] hover:text-[#03C75A] transition-colors"
                 >
                   <Plus className="h-5 w-5" /> 새 가맹점 추가
                 </button>
