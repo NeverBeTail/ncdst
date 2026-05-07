@@ -44,7 +44,11 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
         'auth/cancelled-popup-request'
       ];
       if (!ignoredErrors.includes(error.code)) {
-        alert('로그인에 실패했습니다. 팝업 차단이 해제되어 있는지 확인해주세요.');
+        if (error.code === 'auth/unauthorized-domain') {
+          alert('현재 도메인이 Firebase에서 승인되지 않았습니다. Firebase 콘솔에서 승인된 도메인에 ncdst.vercel.app 을 추가해주세요.');
+        } else {
+          alert(`로그인에 실패했습니다 (${error.code}). 팝업 차단이 해제되어 있는지 확인해주세요.`);
+        }
       }
     } finally {
       setIsSigningIn(false);

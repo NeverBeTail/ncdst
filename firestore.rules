@@ -25,31 +25,47 @@ service cloud.firestore {
     }
 
     function isValidMerchantData(data) {
-      return (!('groupName' in data) || (data.groupName is string && data.groupName.size() <= 500)) &&
-             (!('vanCompany' in data) || (data.vanCompany is string && data.vanCompany.size() <= 500)) &&
-             (!('vanAgencyName' in data) || (data.vanAgencyName is string && data.vanAgencyName.size() <= 500)) &&
-             (!('agencyContact' in data) || (data.agencyContact is string && data.agencyContact.size() <= 200)) &&
-             (!('name' in data) || (data.name is string && data.name.size() <= 500)) &&
-             (!('businessNumber' in data) || (data.businessNumber is string && data.businessNumber.size() <= 200)) &&
-             (!('address' in data) || (data.address is string && data.address.size() <= 1000)) &&
-             (!('assignee' in data) || (data.assignee is string && data.assignee.size() <= 200)) &&
-             (!('visitDate' in data) || (data.visitDate is string && data.visitDate.size() <= 100)) &&
-             (!('visitResult' in data) || (data.visitResult is string && data.visitResult in ['대기중', '대표부재', '재방문필요', '대리점상담희망', '즉시설치', '거절', '불가', '방문실패', ''])) &&
-             (!('installStatus' in data) || (data.installStatus is string && data.installStatus in ['미설치', '설치예정', '설치완료', ''])) &&
-             (!('installDate' in data) || (data.installDate is string && data.installDate.size() <= 100)) &&
+      return (!('groupName' in data) || (data.groupName is string && data.groupName.size() <= 1000)) &&
+             (!('merchantType' in data) || (data.merchantType is string && data.merchantType in ['CONNECT', 'BOOKING'])) &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 1000)) &&
+             (!('businessNumber' in data) || (data.businessNumber is string && data.businessNumber.size() <= 500)) &&
+             (!('address' in data) || (data.address is string && data.address.size() <= 2000)) &&
+             (!('contact' in data) || (data.contact is string && data.contact.size() <= 500)) &&
+             (!('assignee' in data) || (data.assignee is string && data.assignee.size() <= 500)) &&
+             (!('visitDate' in data) || (data.visitDate is string && data.visitDate.size() <= 200)) &&
+             (!('visitResult' in data) || (data.visitResult is string && data.visitResult in ['대기중', '대표부재', '재방문필요', '상담희망', '즉시설치', '거절', '불가', '방문실패', '미처리', '기사용', ''])) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 10000)) &&
+             (!('plannedDate' in data) || (data.plannedDate is string && data.plannedDate.size() <= 200)) &&
+             (!('criteria' in data) || (data.criteria is string && data.criteria.size() <= 1000)) &&
+             (!('no' in data) || (data.no is string && data.no.size() <= 500)) &&
+             (!('classification' in data) || (data.classification is string && data.classification.size() <= 500)) &&
+             (!('placeId' in data) || (data.placeId is string && data.placeId.size() <= 500)) &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 1000)) &&
+             (!('category2' in data) || (data.category2 is string && data.category2.size() <= 1000)) &&
+             (!('category3' in data) || (data.category3 is string && data.category3.size() <= 1000)) &&
+             (!('assignedPart' in data) || (data.assignedPart is string && data.assignedPart.size() <= 1000)) &&
+             (!('leadOwner' in data) || (data.leadOwner is string && data.leadOwner.size() <= 500)) &&
+             (!('contactStage' in data) || (data.contactStage is string && data.contactStage.size() <= 500)) &&
+             (!('contactStatusNotes' in data) || (data.contactStatusNotes is string && data.contactStatusNotes.size() <= 10000)) &&
+             (!('firstContactDate' in data) || (data.firstContactDate is string && data.firstContactDate.size() <= 200)) &&
+             (!('firstContactAssignee' in data) || (data.firstContactAssignee is string && data.firstContactAssignee.size() <= 500)) &&
+             (!('secondContactDate' in data) || (data.secondContactDate is string && data.secondContactDate.size() <= 200)) &&
+             (!('secondContactAssignee' in data) || (data.secondContactAssignee is string && data.secondContactAssignee.size() <= 500)) &&
+             (!('thirdContactDate' in data) || (data.thirdContactDate is string && data.thirdContactDate.size() <= 200)) &&
+             (!('thirdContactAssignee' in data) || (data.thirdContactAssignee is string && data.thirdContactAssignee.size() <= 500)) &&
+             (!('vanCompany' in data) || (data.vanCompany is string && data.vanCompany.size() <= 1000)) &&
+             (!('vanAgencyName' in data) || (data.vanAgencyName is string && data.vanAgencyName.size() <= 1000)) &&
+             (!('agencyContact' in data) || (data.agencyContact is string && data.agencyContact.size() <= 500)) &&
+             (!('installStatus' in data) || (data.installStatus is string && data.installStatus in ['미설치', '설치예정', '설치완료', '설치 예정', '설치 완료', ''])) &&
+             (!('installDate' in data) || (data.installDate is string && data.installDate.size() <= 200)) &&
              (!('tTerminalInstalled' in data) || (data.tTerminalInstalled is string && data.tTerminalInstalled in ['설치', '미설치', '모름', ''])) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000)) &&
-             (!('contact' in data) || (data.contact is string && data.contact.size() <= 200)) &&
+             (!('bookingStatus' in data) || (data.bookingStatus is string && data.bookingStatus.size() <= 500)) &&
              (!('createdAt' in data) || data.createdAt is timestamp) &&
              (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
-    function hasAllMerchantFields(data) {
-      let requiredFields = [
-        'groupName', 'vanCompany', 'vanAgencyName', 'agencyContact', 'name', 
-        'businessNumber', 'address', 'assignee', 'visitDate', 'visitResult', 
-        'installStatus', 'installDate', 'tTerminalInstalled', 'notes', 'contact', 'createdAt', 'updatedAt'
-      ];
+    function hasMinimumMerchantFields(data) {
+      let requiredFields = ['merchantType', 'name', 'address', 'createdAt', 'updatedAt'];
       return data.keys().hasAll(requiredFields);
     }
 
@@ -59,21 +75,22 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
                        isValidId(merchantId) &&
                        isValidMerchantData(incoming()) &&
-                       hasAllMerchantFields(incoming()) &&
-                       incoming().keys().size() == 17 &&
+                       hasMinimumMerchantFields(incoming()) &&
                        incoming().createdAt == request.time &&
                        incoming().updatedAt == request.time;
       allow update: if isSignedIn() &&
                        isValidId(merchantId) &&
                        isValidMerchantData(incoming()) &&
                        incoming().createdAt == existing().createdAt &&
-                       incoming().updatedAt == request.time &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'groupName', 'vanCompany', 'vanAgencyName', 'agencyContact', 'name', 
-                         'businessNumber', 'address', 'assignee', 'visitDate', 'visitResult', 
-                         'installStatus', 'installDate', 'tTerminalInstalled', 'notes', 'contact', 'updatedAt'
-                       ]);
+                       incoming().updatedAt == request.time;
       allow delete: if isSignedIn() && isValidId(merchantId);
+    }
+
+    match /merchants_audit/{logId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(logId);
+      allow update, delete: if false;
     }
 
     function isValidSettings(data) {

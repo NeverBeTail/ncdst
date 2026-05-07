@@ -46,3 +46,28 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
+export function isFirestoreQuotaError(error: any): boolean {
+  if (!error) return false;
+  
+  // Custom JSON error check
+  if (error.message) {
+    try {
+      const parsed = JSON.parse(error.message);
+      if (parsed.error && (parsed.error.includes('Quota exceeded') || parsed.error.includes('quota-exceeded'))) {
+        return true;
+      }
+    } catch {
+      // Not JSON, continue to other checks
+    }
+  }
+
+  // Raw Firebase error checks
+  const message = error.message || String(error);
+  return (
+    error.code === 'resource-exhausted' ||
+    message.includes('Quota exceeded') ||
+    message.includes('quota-exceeded') ||
+    message.includes('resource-exhausted')
+  );
+}
