@@ -97,7 +97,6 @@ service cloud.firestore {
                        incoming().updatedAt == request.time;
       allow update: if isActive() &&
                        isValidId(merchantId) &&
-                       isValidMerchantData(incoming()) &&
                        incoming().createdAt == existing().createdAt &&
                        incoming().updatedAt == request.time;
       allow delete: if isAdmin();
@@ -121,12 +120,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && request.auth.uid == userId && (
-                       // Can update their own name and assignees
-                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'assignees', 'updatedAt']) ||
-                       // Admins can update status and role
-                       (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'role']))
-                     );
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'assignees', 'updatedAt'])) ||
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'role', 'updatedAt']))
+      );
     }
 
     match /merchants_audit/{logId} {
